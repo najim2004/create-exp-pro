@@ -544,7 +544,7 @@ const notFound = (req: Request, res: Response) => {
 
 export default notFound;
 `;
-const loggerTemplate = `import pino from 'pino';
+const loggerTemplate = `import {pino} from 'pino';
 import config from '../config/index.js';
 
 const logger = pino(
