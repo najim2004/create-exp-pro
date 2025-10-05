@@ -4,6 +4,99 @@ const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
+// --- Utility Functions ---
+const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// Function to install dependencies one by one and verify
+async function installDependenciesSequentially(
+  packageList,
+  isDev = false,
+  projectPath
+) {
+  const failedPackages = [];
+  const installedPackagesWithVersions = {}; // To store installed package names and their versions
+  const installCommand = isDev ? "npm install -D" : "npm install";
+
+  console.log(`\nInstalling ${isDev ? "devDependencies" : "dependencies"}...`);
+
+  for (const pkgName of packageList) {
+    // pkgName will now be just the name, e.g., "cors"
+    console.log(`  Attempting to install: ${pkgName} (latest)...`);
+    try {
+      // Install the package without specifying a version to get the latest
+      // Use --no-save to prevent npm from modifying package.json during individual installs.
+      execSync(`${installCommand} ${pkgName} --no-save`, {
+        stdio: "inherit",
+        cwd: projectPath,
+      });
+
+      // Determine the actual package name for node_modules path (handling scoped packages)
+      let actualPackageNameForNodeModules;
+      if (pkgName.startsWith("@")) {
+        const parts = pkgName.split("/");
+        actualPackageNameForNodeModules = parts[0] + "/" + parts[1];
+      } else {
+        actualPackageNameForNodeModules = pkgName;
+      }
+
+      const nodeModulesPath = path.join(
+        projectPath,
+        "node_modules",
+        actualPackageNameForNodeModules
+      );
+      const isNodeModulePresent = fs.existsSync(nodeModulesPath);
+
+      if (isNodeModulePresent) {
+        // Read the installed version from the package's own package.json
+        const installedPackageJsonPath = path.join(
+          nodeModulesPath,
+          "package.json"
+        );
+        const installedPackageJson = JSON.parse(
+          fs.readFileSync(installedPackageJsonPath, "utf8")
+        );
+        const installedVersion = installedPackageJson.version;
+
+        installedPackagesWithVersions[pkgName] = `^${installedVersion}`; // Use caret range for package.json
+
+        console.log(`  ✅ Installed: ${pkgName}@${installedVersion}`);
+      } else {
+        console.warn(
+          `  ⚠️  Verification failed for ${pkgName}. Adding to failed list.`
+        );
+        failedPackages.push(pkgName);
+      }
+    } catch (error) {
+      console.error(`  ❌ Failed to install ${pkgName}: ${error.message}`);
+      failedPackages.push(pkgName);
+    }
+  }
+  return { failedPackages, installedPackagesWithVersions };
+}
+
+// Function to initialize Husky
+function initializeHusky(projectPath) {
+  console.log("\nInitializing Husky...");
+  try {
+    execSync("npm install husky --save-dev", {
+      stdio: "inherit",
+      cwd: projectPath,
+    });
+    execSync("npx husky init", { stdio: "inherit", cwd: projectPath });
+    execSync('npm pkg set scripts.prepare="husky install"', {
+      stdio: "inherit",
+      cwd: projectPath,
+    });
+    execSync('npx husky add .husky/pre-commit "npm test"', {
+      stdio: "inherit",
+      cwd: projectPath,
+    });
+    console.log("✅ Husky initialized successfully with a pre-commit hook.");
+  } catch (error) {
+    console.error(`❌ Failed to initialize Husky: ${error.message}`);
+  }
+}
+
 // --- Template Functions (ESM Version) ---
 
 const getPackageJsonTemplate = (projectName) => `{
@@ -18,37 +111,13 @@ const getPackageJsonTemplate = (projectName) => `{
     "build": "tsc",
     "lint": "eslint src --ext ts --fix",
     "prettier": "prettier --write src/**/*.ts",
-    "prepare": "husky install",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "prepare": "husky install"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "^5.1.0",
-    "mongoose": "^8.19.0",
-    "pino": "^10.0.0",
-    "pino-pretty": "^10.2.3",
-    "zod": "^4.1.11"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.16",
-    "@types/express": "^4.17.21",
-    "@types/node": "^24.6.2",
-    "@typescript-eslint/eslint-plugin": "^6.11.0",
-    "@typescript-eslint/parser": "^6.11.0",
-    "eslint": "^9.37.0",
-    "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-prettier": "^5.0.1",
-    "husky": "^9.1.7",
-    "lint-staged": "^15.1.0",
-    "nodemon": "^3.1.10",
-    "prettier": "^3.6.2",
-    "ts-node": "^10.9.1",
-    "typescript": "^5.9.3"
-  },
+  "dependencies": {},
+  "devDependencies": {},
   "lint-staged": {
     "src/**/*.ts": [
       "eslint --fix",
@@ -121,7 +190,7 @@ async function bootstrap() {
   try {
     // Connect to DB
     await mongoose.connect(config.database_url as string);
-    logger.info('🛢️ Database connected successfully');
+    logger.info('️ Database connected successfully');
 
     // Add final middlewares
     app.use(globalErrorHandler);
@@ -129,11 +198,11 @@ async function bootstrap() {
 
     // Start server
     app.listen(config.port, () => {
-      logger.info('🚀 Server listening on port ' + config.port);
+      logger.info(' Server listening on port ' + config.port);
     });
 
   } catch (err) {
-    logger.error('🔥 Failed to bootstrap application', err);
+    logger.error(' Failed to bootstrap application', err);
     process.exit(1);
   }
 }
@@ -592,8 +661,6 @@ const getModuleInterfaceTemplate = (moduleName) => {
 
 // --- CLI Logic ---
 
-const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-
 const main = () => {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -617,19 +684,11 @@ const main = () => {
       process.exit(1);
     }
     generateModule(moduleName.toLowerCase(), hasModel);
-  } else {
-    console.log("Welcome to create-express-pro (ESM Edition)!");
-    console.log("Usage:");
-    console.log(
-      "  create-express-pro new <project-name>   - Scaffold a new Express.js project"
-    );
-    console.log(
-      "  create-express-pro module <name> [--model] - Generate a new module"
-    );
   }
 };
 
-const scaffoldNewProject = (projectName) => {
+const scaffoldNewProject = async (projectName) => {
+  // Made async
   console.log(`\nScaffolding new ESM project: ${projectName}...\n`);
   const projectPath = path.join(process.cwd(), projectName);
 
@@ -651,8 +710,55 @@ const scaffoldNewProject = (projectName) => {
     fs.mkdirSync(path.join(projectPath, dir), { recursive: true })
   );
 
+  // --- Define hardcoded dependency lists (without versions) ---
+  const dependencies = [
+    "cors",
+    "dotenv",
+    "express",
+    "mongoose",
+    "pino",
+    "pino-pretty",
+    "zod",
+  ];
+  const devDependencies = [
+    "typescript",
+    "@types/cors",
+    "@types/express",
+    "@types/node",
+    "@typescript-eslint/eslint-plugin",
+    "@typescript-eslint/parser",
+    "eslint",
+    "eslint-config-prettier",
+    "eslint-plugin-prettier",
+    "husky",
+    "lint-staged",
+    "nodemon",
+    "prettier",
+    "ts-node",
+  ];
+
+  // --- Streamlined package.json creation ---
+  const packageJsonContentObj = JSON.parse(getPackageJsonTemplate(projectName));
+
+  // --- Install dependencies sequentially and get installed versions ---
+  const {
+    failedPackages: failedDeps,
+    installedPackagesWithVersions: installedDeps,
+  } = await installDependenciesSequentially(dependencies, false, projectPath);
+  const {
+    failedPackages: failedDevDeps,
+    installedPackagesWithVersions: installedDevDeps,
+  } = await installDependenciesSequentially(devDependencies, true, projectPath);
+
+  // Populate package.json content dynamically from the *installed* versions
+  Object.assign(packageJsonContentObj.dependencies, installedDeps);
+  Object.assign(packageJsonContentObj.devDependencies, installedDevDeps);
+
   const files = [
-    { name: "package.json", content: getPackageJsonTemplate(projectName) },
+    {
+      name: "package.json",
+      content: JSON.stringify(packageJsonContentObj, null, 2),
+    }, // Use the populated object
     { name: "tsconfig.json", content: tsconfigTemplate },
     { name: "nodemon.json", content: nodemonTemplate },
     { name: ".gitignore", content: gitignoreTemplate },
@@ -681,23 +787,22 @@ const scaffoldNewProject = (projectName) => {
     console.log(`✅ Created ${file.name}`);
   });
 
-  console.log("\nInstalling dependencies... This might take a few minutes.\n");
-  try {
-    execSync(`cd "${projectPath}" && npm install`, { stdio: "inherit" });
-  } catch (error) {
-    console.error(
-      '\nFailed to install dependencies. Please run "npm install" manually.'
-    );
-    process.exit(1);
-  }
+  // --- Initialize Husky ---
+  initializeHusky(projectPath);
 
-  console.log("\nInitializing Husky...\n");
-  try {
-    execSync(`cd "${projectPath}" && npm run prepare`, { stdio: "inherit" });
-  } catch (error) {
-    console.error(
-      '\nFailed to initialize Husky. You may need to run "npm run prepare" manually.'
+  // --- Report summary ---
+  console.log("\n--- Installation Summary ---");
+  if (failedDeps.length === 0 && failedDevDeps.length === 0) {
+    console.log("✅ All packages installed successfully!");
+  } else {
+    console.warn(
+      "⚠️ Some packages failed to install. Please install them manually:"
     );
+    if (failedDeps.length > 0) {
+      console.warn(`  Dependencies: ${failedDeps.join(", ")}`);
+    } else {
+      console.warn(`  DevDependencies: ${failedDevDeps.join(", ")}`);
+    }
   }
 
   console.log(`\n✅ Project '${projectName}' created successfully!`);
@@ -759,28 +864,28 @@ const generateModule = (moduleName, hasModel) => {
   });
 
   // --- Update app.ts for automatic module injection ---
-  const appTsPath = path.join(process.cwd(), 'src', 'app.ts');
-  let appContent = fs.readFileSync(appTsPath, 'utf-8');
+  const appTsPath = path.join(process.cwd(), "src", "app.ts");
+  let appContent = fs.readFileSync(appTsPath, "utf8");
 
   const routeName = `${moduleName}Routes`;
   const importLine = `import { ${routeName} } from './modules/${moduleName}/${moduleName}.route.js';`;
   const useLine = `app.use('/api/v1/${moduleName}', ${routeName});`;
-  const importMarker = '// <new-import-here>';
-  const routeMarker = '// <new-route-here>';
+  const importMarker = "// <new-import-here>";
+  const routeMarker = "// <new-route-here>";
 
   if (appContent.includes(importLine)) {
     console.log(`✅ Module '${moduleName}' already injected. Skipping.`);
   } else {
-    appContent = appContent.replace(importMarker, `${importLine}
-${importMarker}`);
-    appContent = appContent.replace(routeMarker, `${useLine}
-${routeMarker}`);
+    appContent = appContent.replace(
+      importMarker,
+      `${importLine}\n${importMarker}`
+    );
+    appContent = appContent.replace(routeMarker, `${useLine}\n${routeMarker}`);
     fs.writeFileSync(appTsPath, appContent);
     console.log(`✅ Injected module '${moduleName}' into app.ts`);
   }
 
-  console.log(`
-✅ Module '${moduleName}' created successfully!`);
+  console.log(`\n✅ Module '${moduleName}' created successfully!`);
 };
 
 main();
