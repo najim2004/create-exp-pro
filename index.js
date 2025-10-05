@@ -19,35 +19,35 @@ const getPackageJsonTemplate = (projectName) => `{
     "lint": "eslint src --ext ts --fix",
     "prettier": "prettier --write src/**/*.ts",
     "prepare": "husky install",
-    "test": "echo \\"Error: no test specified\\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "mongoose": "^8.0.0",
-    "pino": "^8.16.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "mongoose": "^8.19.0",
+    "pino": "^10.0.0",
     "pino-pretty": "^10.2.3",
-    "zod": "^3.22.4"
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@types/cors": "^2.8.16",
     "@types/express": "^4.17.21",
-    "@types/node": "^20.9.0",
+    "@types/node": "^24.6.2",
     "@typescript-eslint/eslint-plugin": "^6.11.0",
     "@typescript-eslint/parser": "^6.11.0",
-    "eslint": "^8.53.0",
+    "eslint": "^9.37.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.1",
-    "husky": "^8.0.0",
+    "husky": "^9.1.7",
     "lint-staged": "^15.1.0",
-    "nodemon": "^3.0.1",
-    "prettier": "^3.1.0",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.6.2",
     "ts-node": "^10.9.1",
-    "typescript": "^5.2.2"
+    "typescript": "^5.9.3"
   },
   "lint-staged": {
     "src/**/*.ts": [
@@ -86,6 +86,8 @@ const nodemonTemplate = `{
 const appTsTemplate = `import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 
+// <new-import-here>
+
 const app: Application = express();
 
 // Middlewares
@@ -94,6 +96,8 @@ app.use(cors({
   origin: '*', // configure as needed
   credentials: true,
 }));
+
+// <new-route-here>
 
 // Health check route
 app.get('/', (req: Request, res: Response) => {
@@ -289,7 +293,7 @@ router.patch(
 
 router.delete('/:id', ${capitalized}Controllers.delete${capitalized});
 
-export default router;
+export const ${moduleName}Routes = router;
 `;
 };
 
@@ -754,30 +758,29 @@ const generateModule = (moduleName, hasModel) => {
     console.log(`✅ Created ${file.name}`);
   });
 
-  // --- update app.ts ---
-  const appTsPath = path.join(process.cwd(), "src", "app.ts");
-  let appContent = fs.readFileSync(appTsPath, "utf-8");
+  // --- Update app.ts for automatic module injection ---
+  const appTsPath = path.join(process.cwd(), 'src', 'app.ts');
+  let appContent = fs.readFileSync(appTsPath, 'utf-8');
 
-  const importLine = `import ${moduleName}Route from './modules/${moduleName}/${moduleName}.route.js';`;
-  const useLine = `app.use('/api/v1/${moduleName}', ${moduleName}Route);`;
+  const routeName = `${moduleName}Routes`;
+  const importLine = `import { ${routeName} } from './modules/${moduleName}/${moduleName}.route.js';`;
+  const useLine = `app.use('/api/v1/${moduleName}', ${routeName});`;
+  const importMarker = '// <new-import-here>';
+  const routeMarker = '// <new-route-here>';
 
-  if (!appContent.includes(importLine)) {
-    appContent = appContent.replace(
-      "// <new-import-here>",
-      `${importLine}\n// <new-import-here>`
-    );
+  if (appContent.includes(importLine)) {
+    console.log(`✅ Module '${moduleName}' already injected. Skipping.`);
+  } else {
+    appContent = appContent.replace(importMarker, `${importLine}
+${importMarker}`);
+    appContent = appContent.replace(routeMarker, `${useLine}
+${routeMarker}`);
+    fs.writeFileSync(appTsPath, appContent);
+    console.log(`✅ Injected module '${moduleName}' into app.ts`);
   }
 
-  if (!appContent.includes(useLine)) {
-    appContent = appContent.replace(
-      "// <new-route-here>",
-      `${useLine}\n// <new-route-here>`
-    );
-  }
-
-  fs.writeFileSync(appTsPath, appContent);
-  console.log(`✅ App.ts updated with new route.`);
-  console.log(`\n✅ Module '${moduleName}' created successfully!`);
+  console.log(`
+✅ Module '${moduleName}' created successfully!`);
 };
 
 main();
