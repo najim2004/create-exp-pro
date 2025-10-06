@@ -23,29 +23,31 @@ const getPackageJsonTemplate = (projectName) => `{
       "prettier --write"
     ]
   }
-}`;const tsconfigTemplate = `{
+}`;
+const tsconfigTemplate = `{
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "moduleResolution": "bundler",
+    "target": "es2022", // Updated to match modern ESM
+    "module": "esnext", // Changed from "commonjs" to support ESM
     "rootDir": "./src",
     "outDir": "./dist",
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true, // Helps with default imports in ESM
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    }
+    "strict": true,
+    "noEmit": true // Optional: ts-node handles emission
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules"]
-}`;const nodemonTemplate = `{
+  "exclude": ["node_modules", "dist"]
+}
+`;
+const nodemonTemplate = `{
   "watch": ["src"],
   "ext": "ts",
-  "exec": "ts-node-esm ./src/server.ts"
-}`;const appTsTemplate = `import express, { Application, Request, Response } from 'express';
+  "exec": "node --loader ts-node/esm --experimental-specifier-resolution=node src/server.ts"
+}`;
+const appTsTemplate = `import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 
 // <new-import-here>
@@ -70,7 +72,8 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 export default app;
-`;const serverTsTemplate = `import mongoose from 'mongoose';
+`;
+const serverTsTemplate = `import mongoose from 'mongoose';
 import app from './app.js';
 import config from './config/index.js';
 import logger from './utils/logger.js';
@@ -99,126 +102,123 @@ async function bootstrap() {
 }
 
 bootstrap();
-`;const globalErrorHandlerTemplate = `import { Request, Response, NextFunction } from 'express';
+`;
+const globalErrorHandlerTemplate = `import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import config from '../config/index.js';
 import { TErrorSources } from '../interface/error.js';
 
-const handleZodError = (err: ZodError) => {
-  const errorSources: TErrorSources = err.issues.map((issue) => {
-    return {
-      path: issue.path[issue.path.length - 1],
-      message: issue.message,
-    };
-  });
+// Helper for sending error response
+const sendErrorResponse = (res: Response, statusCode: number, message: string, errorSources: TErrorSources, stack?: string) => {
+  return res.status(statusCode).json({ success: false, message, errorSources, stack });
+};
+
+// Zod error
+const handleZodError = (err: ZodError) => ({
+  statusCode: 400,
+  message: 'Validation Error',
+  errorSources: err.issues.map(i => ({ path: i.path.join('.') || '', message: i.message })),
+});
+
+// Mongoose ValidationError
+const handleMongooseValidationError = (err: { errors: Record<string, { path: string; message: string }> }) => ({
+  statusCode: 400,
+  message: 'Validation Error',
+  errorSources: Object.values(err.errors).map(val => ({ path: val.path, message: val.message })),
+});
+
+// Mongoose CastError
+const handleMongooseCastError = (err: { path: string; message: string }) => ({
+  statusCode: 400,
+  message: 'Invalid ID',
+  errorSources: [{ path: err.path, message: err.message }],
+});
+
+// Mongoose Duplicate Key
+const handleMongooseDuplicateError = (err: { keyValue: Record<string, unknown> }) => {
+  const key = Object.keys(err.keyValue)[0];
   return {
     statusCode: 400,
-    message: 'Validation Error',
-    errorSources,
+    message: \`${key} already exists\`,
+    errorSources: [{ path: key, message: \`${key} already exists\` }],
   };
 };
 
-const handleMongooseValidationError = (err: any) => {
-  const errorSources: TErrorSources = Object.values(err.errors).map((val: any) => {
-    return {
-      path: val?.path,
-      message: val?.message,
-    };
-  });
-  return {
-    statusCode: 400,
-    message: 'Validation Error',
-    errorSources,
-  };
-};
-
-const handleMongooseCastError = (err: any) => {
-  return {
-    statusCode: 400,
-    message: 'Invalid ID',
-    errorSources: [{
-      path: err.path,
-      message: err.message,
-    }],
-  };
-};
-
-const handleMongooseDuplicateError = (err: any) => {
-  const match = err.message.match(/"([^"]*)"/);
-  const extractedMessage = match && match[1];
-  return {
-    statusCode: 400,
-    message: extractedMessage + ' is already exists',
-    errorSources: [{
-      path: '',
-      message: extractedMessage + ' is already exists',
-    }],
-  };
-};
-
-
+// Global Error Handler
 const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-  let statusCode = err.statusCode || 500;
-  let message = err.message || 'Something went wrong!';
-  let errorSources: TErrorSources = [{ path: '', message: 'Something went wrong' }];
+  let statusCode = 500;
+  let message = 'Something went wrong!';
+  let errorSources: TErrorSources = [{ path: '', message }];
 
   if (err instanceof ZodError) {
-    const simplifiedError = handleZodError(err);
-    statusCode = simplifiedError.statusCode;
-    message = simplifiedError.message;
-    errorSources = simplifiedError.errorSources;
+    const e = handleZodError(err);
+    statusCode = e.statusCode;
+    message = e.message;
+    errorSources = e.errorSources;
   } else if (err?.name === 'ValidationError') {
-    const simplifiedError = handleMongooseValidationError(err);
-    statusCode = simplifiedError.statusCode;
-    message = simplifiedError.message;
-    errorSources = simplifiedError.errorSources;
+    const e = handleMongooseValidationError(err);
+    statusCode = e.statusCode;
+    message = e.message;
+    errorSources = e.errorSources;
   } else if (err?.name === 'CastError') {
-    const simplifiedError = handleMongooseCastError(err);
-    statusCode = simplifiedError.statusCode;
-    message = simplifiedError.message;
-    errorSources = simplifiedError.errorSources;
-  } else if (err?.code === 11000) {
-    const simplifiedError = handleMongooseDuplicateError(err);
-    statusCode = simplifiedError.statusCode;
-    message = simplifiedError.message;
-    errorSources = simplifiedError.errorSources;
+    const e = handleMongooseCastError(err);
+    statusCode = e.statusCode;
+    message = e.message;
+    errorSources = e.errorSources;
+  } else if (err?.code === 11000 && err?.keyValue) {
+    const e = handleMongooseDuplicateError(err);
+    statusCode = e.statusCode;
+    message = e.message;
+    errorSources = e.errorSources;
   }
 
-
-  return res.status(statusCode).json({
-    success: false,
+  return sendErrorResponse(
+    res,
+    statusCode,
     message,
     errorSources,
-    stack: config.node_env === 'development' ? err?.stack : undefined,
-  });
+    config.node_env === 'development' ? err?.stack : undefined
+  );
 };
 
 export default globalErrorHandler;
-`;const validateRequestTemplate = `import { NextFunction, Request, Response } from 'express';
-import { AnyZodObject } from 'zod';
 
-const validateRequest = (schema: AnyZodObject) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      await schema.parseAsync({
-        body: req.body,
-        query: req.query,
-        params: req.params,
-        cookies: req.cookies,
-      });
-      return next();
-    } catch (error) {
-      next(error);
+`;
+const validateRequestTemplate = `// src/middlewares/validateRequest.ts
+import { Request, Response, NextFunction, RequestHandler } from 'express';
+import { ZodTypeAny } from 'zod';
+
+const validateRequest =
+  <T extends ZodTypeAny>(schema: T): RequestHandler =>
+  (req: Request, res: Response, next: NextFunction) => {
+    const result = schema.safeParse({
+      body: req.body,
+      query: req.query,
+      params: req.params,
+    });
+
+    if (!result.success) {
+      const errors = result.error.issues.map(i => ({
+        field: i.path.join('.'),
+        message: i.message,
+      }));
+      return res.status(400).json({ success: false, errors });
     }
+
+    // optional: overwrite parsed, type-safe data back to req
+    Object.assign(req, result.data);
+    next();
   };
-};
 
 export default validateRequest;
-`;const errorInterfaceTemplate = `export type TErrorSources = {
+
+`;
+const errorInterfaceTemplate = `export type TErrorSources = {
   path: string | number;
   message: string;
 }[];
-`;module.exports = {
+`;
+module.exports = {
   getPackageJsonTemplate,
   tsconfigTemplate,
   nodemonTemplate,

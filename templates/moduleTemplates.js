@@ -11,7 +11,7 @@ const router = Router();
 
 router.post(
   '/',
-  validateRequest(${capitalized}Validations.create${capitalized}ValidationSchema),
+  validateRequest(${capitalized}Validations.create${capitalized}Schema),
   ${capitalized}Controllers.create${capitalized},
 );
 
@@ -21,7 +21,7 @@ router.get('/:id', ${capitalized}Controllers.getSingle${capitalized});
 
 router.patch(
   '/:id',
-  validateRequest(${capitalized}Validations.update${capitalized}ValidationSchema),
+  validateRequest(${capitalized}Validations.update$${capitalized}Schema),
   ${capitalized}Controllers.update${capitalized},
 );
 
@@ -178,18 +178,24 @@ const getModuleValidationTemplate = (moduleName) => {
   const capitalized = capitalize(moduleName);
   return `import { z } from 'zod';
 
-const create${capitalized}ValidationSchema = z.object({
+// Create ${capitalized} Schema (required fields)
+export const create${capitalized}Schema = z.object({
   body: z.object({
-    name: z.string({ required_error: 'Name is required' }),
-    // Add more fields for your ${moduleName}
+    name: z.string().min(1, 'Name is required'),
   }),
 });
 
-const update${capitalized}ValidationSchema = create${capitalized}ValidationSchema.deepPartial();
+// Update ${capitalized} Schema (all fields optional, reuse create schema)
+export const update${capitalized}Schema = create${capitalized}Schema.partial();
 
+// Type inference for controller
+export type Create${capitalized}Input = z.infer<typeof create${capitalized}Schema>['body'];
+export type Update${capitalized}Input = z.infer<typeof update${capitalized}Schema>['body'];
+
+// Export as object for cleaner imports
 export const ${capitalized}Validations = {
-  create${capitalized}ValidationSchema,
-  update${capitalized}ValidationSchema,
+  create${capitalized}Schema,
+  update${capitalized}Schema,
 };
 `;
 };
