@@ -1,31 +1,35 @@
 #!/usr/bin/env node
 
+const { program } = require("commander");
 const { scaffoldNewProject, generateModule } = require("./commands");
+const packageJson = require("./package.json");
 
-const main = () => {
-  const args = process.argv.slice(2);
-  const command = args[0];
+// Program definition
+program
+  .name("ncli")
+  .description(packageJson.description)
+  .version(packageJson.version);
 
-  if (command === "new") {
-    const projectName = args[1];
-    if (!projectName) {
-      console.error(
-        "Error: Project name is required. Usage: create-express-pro new <project-name>"
-      );
-      process.exit(1);
-    }
+// `create` command
+const createCommand = program.command("create");
+
+// `create <project-name>` subcommand
+createCommand
+  .command("project <project-name>")
+  .alias("p")
+  .description("Create a new professional Express.js project.")
+  .action((projectName) => {
     scaffoldNewProject(projectName);
-  } else if (command === "module") {
-    const moduleName = args[1];
-    const hasModel = args.includes("--model");
-    if (!moduleName) {
-      console.error(
-        "Error: Module name is required. Usage: create-express-pro module <name> [--model]"
-      );
-      process.exit(1);
-    }
-    generateModule(moduleName.toLowerCase(), hasModel);
-  }
-};
+  });
 
-main();
+// `create module <module-name>` subcommand
+createCommand
+  .command("module <module-name>")
+  .alias("m")
+  .description("Generate a new module in an existing project.")
+  .option("-m, --model", "Generate Mongoose model and interface files", false)
+  .action((moduleName, options) => {
+    generateModule(moduleName.toLowerCase(), options.model);
+  });
+
+program.parse(process.argv);

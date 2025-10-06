@@ -66,24 +66,20 @@ async function installDependenciesSequentially(
 }
 
 function initializeHusky(projectPath) {
-  const spinner = ora("Initializing Husky...").start();
+  const spinner = ora("Initializing Husky & Lint Staged...").start();
   try {
     execSync("npm install husky --save-dev", {
       stdio: "pipe",
       cwd: projectPath,
     });
     execSync("npx husky init", { stdio: "pipe", cwd: projectPath });
-    execSync('npm pkg set scripts.prepare="husky install"', {
+    execSync('npx husky add .husky/pre-commit "npx lint-staged"', {
       stdio: "pipe",
       cwd: projectPath,
     });
-    execSync('npx husky add .husky/pre-commit "npm test"', {
-      stdio: "pipe",
-      cwd: projectPath,
-    });
-    spinner.succeed("Husky initialized successfully.");
+    spinner.succeed("Husky & Lint Staged initialized successfully.");
   } catch (error) {
-    spinner.fail("Failed to initialize Husky.");
+    spinner.fail("Failed to initialize Husky & Lint Staged.");
   }
 }
 

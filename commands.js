@@ -22,6 +22,7 @@ const {
   notFoundTemplate,
   loggerTemplate,
 } = require("./templates/commonTemplates");
+const { requestLoggerTemplate } = require("./templates/middlewares");
 const {
   getModuleRouteTemplate,
   getModuleControllerTemplate,
@@ -62,10 +63,12 @@ const scaffoldNewProject = async (projectName) => {
     "express",
     "mongoose",
     "pino",
+    "pino-http",
     "pino-pretty",
     "zod",
   ];
   const devDependencies = [
+    "@types/pino-http",
     "typescript",
     "@types/cors",
     "@types/express",
@@ -105,6 +108,7 @@ const scaffoldNewProject = async (projectName) => {
     { name: "src/config/index.ts", content: configIndexTemplate },
     { name: "src/middlewares/globalErrorHandler.ts", content: globalErrorHandlerTemplate },
     { name: "src/middlewares/notFound.ts", content: notFoundTemplate },
+    { name: "src/middlewares/requestLogger.ts", content: requestLoggerTemplate },
     { name: "src/middlewares/validateRequest.ts", content: validateRequestTemplate },
     { name: "src/utils/logger.ts", content: loggerTemplate },
     { name: "src/interface/error.ts", content: errorInterfaceTemplate },
