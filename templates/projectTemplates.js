@@ -141,8 +141,8 @@ const handleMongooseDuplicateError = (err: { keyValue: Record<string, unknown> }
   const key = Object.keys(err.keyValue)[0];
   return {
     statusCode: 400,
-    message: \`${key} already exists\`,
-    errorSources: [{ path: key, message: \`${key} already exists\` }],
+    message: \`\${key} already exists\`,
+    errorSources: [{ path: key, message: \`\${key} already exists\` }],
   };
 };
 
