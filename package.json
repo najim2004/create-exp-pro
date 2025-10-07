@@ -1,10 +1,10 @@
 {
-  "name": "ncli",
-  "version": "1.1.5",
-  "description": "A CLI to scaffold professional Express.js projects.",
+  "name": "nxpcli",
+  "version": "1.1.6",
+  "description": "Express CLI: A CLI to scaffold professional Express.js projects.",
   "main": "index.js",
   "bin": {
-    "ncli": ".//index.js"
+    "nxpcli": "./index.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

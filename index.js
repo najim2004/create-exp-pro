@@ -6,7 +6,7 @@ const packageJson = require("./package.json");
 
 // Program definition
 program
-  .name("ncli")
+  .name("nxpcli")
   .description(packageJson.description)
   .version(packageJson.version);
 

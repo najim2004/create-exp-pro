@@ -43,7 +43,7 @@ const eslintrcTemplate = `module.exports = {
 `;
 const readmeTemplate = (projectName) => `# ${projectName} (ESM)
 
-An Express.js backend scaffolded with ncli, now updated with ES Modules.
+An Express.js backend scaffolded with nxpcli, now updated with ES Modules.
 
 ## Running the app
 
@@ -58,7 +58,7 @@ npm start
 `;
 const envTemplate = `NODE_ENV=development
 PORT=5000
-DATABASE_URL=mongodb://127.0.0.1:27017/express-pro-esm`;
+DATABASE_URL=mongodb://127.0.0.1:27017/<your_database_name>`;
 const configIndexTemplate = `import dotenv from 'dotenv';
 import path from 'path';
 
