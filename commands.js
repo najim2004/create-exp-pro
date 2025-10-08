@@ -95,21 +95,33 @@ const scaffoldNewProject = async (projectName) => {
 
   const fileSpinner = ora('Creating project files...').start();
   const files = [
-    { name: "package.json", content: JSON.stringify(packageJsonContentObj, null, 2) },
+    {
+      name: "package.json",
+      content: JSON.stringify(packageJsonContentObj, null, 2),
+    },
     { name: "tsconfig.json", content: tsconfigTemplate },
     { name: "nodemon.json", content: nodemonTemplate },
     { name: ".gitignore", content: gitignoreTemplate },
-    { name: ".eslintrc.js", content: eslintrcTemplate },
+    { name: "eslint.config.mjs", content: eslintrcTemplate },
     { name: ".prettierrc", content: prettierrcTemplate },
     { name: "README.md", content: readmeTemplate(projectName) },
     { name: ".env", content: envTemplate },
     { name: "src/app.ts", content: appTsTemplate },
     { name: "src/server.ts", content: serverTsTemplate },
     { name: "src/config/index.ts", content: configIndexTemplate },
-    { name: "src/middlewares/globalErrorHandler.ts", content: globalErrorHandlerTemplate },
+    {
+      name: "src/middlewares/globalErrorHandler.ts",
+      content: globalErrorHandlerTemplate,
+    },
     { name: "src/middlewares/notFound.ts", content: notFoundTemplate },
-    { name: "src/middlewares/requestLogger.ts", content: requestLoggerTemplate },
-    { name: "src/middlewares/validateRequest.ts", content: validateRequestTemplate },
+    {
+      name: "src/middlewares/requestLogger.ts",
+      content: requestLoggerTemplate,
+    },
+    {
+      name: "src/middlewares/validateRequest.ts",
+      content: validateRequestTemplate,
+    },
     { name: "src/utils/logger.ts", content: loggerTemplate },
     { name: "src/interface/error.ts", content: errorInterfaceTemplate },
   ];
