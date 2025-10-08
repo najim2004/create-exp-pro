@@ -179,7 +179,7 @@ const generateModule = (moduleName, hasModel) => {
   let appContent = fs.readFileSync(appTsPath, "utf8");
 
   const routeName = `${moduleName}Routes`;
-  const importLine = `import { ${routeName} } from './modules/${moduleName}/${moduleName}.route.js';`;
+  const importLine = `import { ${routeName} } from './modules/${moduleName}/${moduleName}.route';`;
   const useLine = `app.use('/api/v1/${moduleName}', ${routeName});`;
   const importMarker = "// <new-import-here>";
   const routeMarker = "// <new-route-here>";
