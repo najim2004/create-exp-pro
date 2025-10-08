@@ -284,11 +284,12 @@ const handleMongooseDuplicateError = (err: {
   const errorSources: IErrorSources = [
     {
       path: '',
-      message: \`\${extracted || 'The value'} already exists.\`,
+      message: \`\\\${extracted || 'The value'} already exists.\`,
     },
   ];
   return { statusCode: 409, message: 'Duplicate Key Error', errorSources };
 };
+
 
 // ---- Type guards ----
 const hasCode = (err: unknown): err is { code: number } =>
