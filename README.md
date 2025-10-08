@@ -125,3 +125,11 @@ The project uses the following environment variables. You can set them in a `.en
 ---
 
 Happy Coding!
+
+## Contact
+
+- **Name:** Najim
+- **Email:** itsnajim.mail@gmail.com
+- **GitHub:** [https://github.com/najim2004](https://github.com/najim2004)
+- **Portfolio:** [najim.vercel.app](https://najim.vercel.app)
+- **LinkedIn:** [linkedin.com/in/its-najim](https://linkedin.com/in/its-najim)

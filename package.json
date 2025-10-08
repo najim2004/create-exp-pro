@@ -1,6 +1,6 @@
 {
   "name": "nxpcli",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Express CLI: A CLI to scaffold professional Express.js projects.",
   "main": "index.js",
   "bin": {
