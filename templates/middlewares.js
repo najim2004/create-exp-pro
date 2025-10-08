@@ -1,6 +1,6 @@
 const requestLoggerTemplate = String.raw`import pinoHttp from 'pino-http';
-import logger from '../utils/logger.js';
-import config from '../config/index.js';
+import logger from '../utils/logger';
+import config from '../config/index';
 
 const pinoHttpMiddleware = pinoHttp({
   logger,

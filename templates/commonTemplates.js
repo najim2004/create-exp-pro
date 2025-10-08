@@ -18,28 +18,57 @@ logs
 .idea
 `;
 const prettierrcTemplate = `{
+  "semi": true,
+  "trailingComma": "es5",
   "singleQuote": true,
-  "trailingComma": "all",
-  "arrowParens": "avoid",
-  "printWidth": 80
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "endOfLine": "lf",
+  "bracketSpacing": true,
+  "arrowParens": "avoid"
 }`;
-const eslintrcTemplate = `module.exports = {
-  parser: '@typescript-eslint/parser',
-  extends: [
-    'plugin:@typescript-eslint/recommended',
-    'prettier',
-  ],
-  plugins: ['@typescript-eslint', 'prettier'],
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
+const eslintrcTemplate = `import tseslint from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+import eslintConfigPrettier from 'eslint-config-prettier';
+import { defineConfig } from 'eslint/config';
+
+export default defineConfig([
+  eslintConfigPrettier,
+  {
+    files: ['**/*.ts'],
+    extends: ['@typescript-eslint/recommended', '@typescript-eslint/stylistic'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: './tsconfig.json',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tseslint,
+    },
+    rules: {
+      // Add any custom rules or overrides here
+      '@typescript-eslint/explicit-function-return-type': 'warn',
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+      'no-console': 'warn',
+      'no-debugger': 'warn',
+      'no-duplicate-imports': 'error',
+      'no-unused-vars': 'off',
+    },
   },
-  rules: {
-    'prettier/prettier': 'error',
-    '@typescript-eslint/no-explicit-any': 'off',
-    '@typescript-eslint/explicit-module-boundary-types': 'off',
+  {
+    ignores: ['dist/**', 'node_modules/**'],
   },
-};
+]);
+
 `;
 const readmeTemplate = (projectName) => `# ${projectName} (ESM)
 
@@ -82,7 +111,7 @@ const notFound = (req: Request, res: Response) => {
 export default notFound;
 `;
 const loggerTemplate = `import {pino} from 'pino';
-import config from '../config/index.js';
+import config from '../config/index';
 
 const logger = pino(
   config.node_env === 'development'
