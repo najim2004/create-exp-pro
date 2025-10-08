@@ -105,7 +105,7 @@ async function bootstrap() {
 
 bootstrap();
 `;
-const globalErrorHandlerTemplate = `import { Request, Response, NextFunction } from 'express';
+const globalErrorHandlerTemplate = String.raw`import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import config from '../config/index.js';
 import { TErrorSources } from '../interface/error.js';
@@ -184,8 +184,8 @@ const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFun
 };
 
 export default globalErrorHandler;
-
 `;
+
 const validateRequestTemplate = `// src/middlewares/validateRequest.ts
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { ZodTypeAny } from 'zod';
