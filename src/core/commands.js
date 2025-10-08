@@ -11,7 +11,7 @@ const {
   globalErrorHandlerTemplate,
   validateRequestTemplate,
   errorInterfaceTemplate,
-} = require("./templates/projectTemplates");
+} = require("../templates/projectTemplates");
 const {
   gitignoreTemplate,
   prettierrcTemplate,
@@ -21,8 +21,8 @@ const {
   configIndexTemplate,
   notFoundTemplate,
   loggerTemplate,
-} = require("./templates/commonTemplates");
-const { requestLoggerTemplate } = require("./templates/middlewares");
+} = require("../templates/commonTemplates");
+const { requestLoggerTemplate } = require("../templates/middlewares");
 const {
   getModuleRouteTemplate,
   getModuleControllerTemplate,
@@ -30,7 +30,7 @@ const {
   getModuleValidationTemplate,
   getModuleModelTemplate,
   getModuleInterfaceTemplate,
-} = require("./templates/moduleTemplates");
+} = require("../templates/moduleTemplates");
 
 const scaffoldNewProject = async (projectName) => {
   const projectPath = path.join(process.cwd(), projectName);

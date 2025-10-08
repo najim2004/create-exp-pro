@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 const { program } = require("commander");
-const { scaffoldNewProject, generateModule } = require("./commands");
-const packageJson = require("./package.json");
+const { scaffoldNewProject, generateModule } = require("../core/commands");
+const packageJson = require("../../package.json");
 
 // Program definition
 program

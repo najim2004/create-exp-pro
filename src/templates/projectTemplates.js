@@ -167,7 +167,7 @@ app.use(cors({
 // <new-route-here>
 
 // Health check route
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (req: Request, res: Response):void => {
   res.status(200).json({
     success: true,
     message: 'Welcome to the Express Pro server! (ESM Edition)',
@@ -183,11 +183,16 @@ import logger from './utils/logger';
 import globalErrorHandler from './middlewares/globalErrorHandler';
 import notFound from './middlewares/notFound';
 
-async function bootstrap() {
+async function bootstrap(): Promise<void> {
   try {
+    if (!config.database_url) {
+      logger.error('FATAL: Database URL is not defined in .env file.');
+      process.exit(1);
+    }
+
     // Connect to DB
-    await mongoose.connect(config.database_url as string);
-    logger.info('️ Database connected successfully');
+    await mongoose.connect(config.database_url);
+    logger.info('️✔️ Database connected successfully');
 
     // Add final middlewares
     app.use(globalErrorHandler);
@@ -195,84 +200,131 @@ async function bootstrap() {
 
     // Start server
     app.listen(config.port, () => {
-      logger.info(' Server listening on port ' + config.port);
+      logger.info(\`✔️ Server is listening on port \${config.port}\`);
     });
 
-  } catch (err) {
-    logger.error(' Failed to bootstrap application', err);
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      logger.error(\`❌ Failed to bootstrap application: \${err.message}\`);
+    } else {
+      logger.error('❌ Failed to bootstrap application with an unknown error.');
+    }
     process.exit(1);
   }
 }
 
 bootstrap();
 `;
-const globalErrorHandlerTemplate = String.raw`import { Request, Response, NextFunction } from 'express';
-import { ZodError } from 'zod';
+const globalErrorHandlerTemplate = String.raw`import { ErrorRequestHandler, Request, Response } from 'express';
+import { ZodError, ZodIssue } from 'zod';
+import mongoose, { Error as MongooseError } from 'mongoose';
 import config from '../config/index';
-import { TErrorSources } from '../interface/error';
+import { IErrorSources } from '../interface/error';
 
-// Helper for sending error response
-const sendErrorResponse = (res: Response, statusCode: number, message: string, errorSources: TErrorSources, stack?: string) => {
-  return res.status(statusCode).json({ success: false, message, errorSources, stack });
+// ---- Helper: standardized error response ----
+const sendErrorResponse = (
+  res: Response,
+  statusCode: number,
+  message: string,
+  errorSources: IErrorSources,
+  stack?: string,
+): Response => {
+  return res.status(statusCode).json({
+    success: false,
+    message,
+    errorSources,
+    ...(stack ? { stack } : {}),
+  });
 };
 
-// Zod error
-const handleZodError = (err: ZodError) => ({
-  statusCode: 400,
-  message: 'Validation Error',
-  errorSources: err.issues.map(i => ({ path: i.path.join('.') || '', message: i.message })),
-});
+// ---- Handle Zod validation error ----
+const handleZodError = (
+  err: ZodError,
+): {
+  statusCode: number;
+  message: string;
+  errorSources: IErrorSources;
+} => {
+  const errorSources: IErrorSources = err.issues.map((issue: ZodIssue) => ({
+    path: issue.path.length ? String(issue.path[issue.path.length - 1]) : '',
+    message: issue.message,
+  }));
 
-// Mongoose ValidationError
-const handleMongooseValidationError = (err: { errors: Record<string, { path: string; message: string }> }) => ({
-  statusCode: 400,
-  message: 'Validation Error',
-  errorSources: Object.values(err.errors).map(val => ({ path: val.path, message: val.message })),
-});
-
-// Mongoose CastError
-const handleMongooseCastError = (err: { path: string; message: string }) => ({
-  statusCode: 400,
-  message: 'Invalid ID',
-  errorSources: [{ path: err.path, message: err.message }],
-});
-
-// Mongoose Duplicate Key
-const handleMongooseDuplicateError = (err: { keyValue: Record<string, unknown> }) => {
-  const key = Object.keys(err.keyValue)[0];
-  return {
-    statusCode: 400,
-    message: \`\${key} already exists\`,
-    errorSources: [{ path: key, message: \`\${key} already exists\` }],
-  };
+  return { statusCode: 400, message: 'Validation Error', errorSources };
 };
 
-// Global Error Handler
-const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+// ---- Handle Mongoose validation error ----
+const handleMongooseValidationError = (
+  err: MongooseError.ValidationError,
+): { statusCode: number; message: string; errorSources: IErrorSources } => {
+  const errorSources: IErrorSources = Object.values(err.errors).map(val => ({
+    path: val.path,
+    message: val.message,
+  }));
+
+  return { statusCode: 400, message: 'Validation Error', errorSources };
+};
+
+// ---- Handle Mongoose cast error ----
+const handleMongooseCastError = (
+  err: MongooseError.CastError,
+): { statusCode: number; message: string; errorSources: IErrorSources } => {
+  const errorSources: IErrorSources = [
+    { path: err.path, message: err.message },
+  ];
+  return { statusCode: 400, message: 'Invalid ID', errorSources };
+};
+
+// ---- Handle duplicate key error ----
+const handleMongooseDuplicateError = (err: {
+  message: string;
+}): { statusCode: number; message: string; errorSources: IErrorSources } => {
+  const match = err.message.match(/"([^"]*)"/);
+  const extracted = match?.[1];
+  const errorSources: IErrorSources = [
+    {
+      path: '',
+      message: \`\${extracted || 'The value'} already exists.\`,
+    },
+  ];
+  return { statusCode: 409, message: 'Duplicate Key Error', errorSources };
+};
+
+// ---- Type guards ----
+const hasCode = (err: unknown): err is { code: number } =>
+  typeof err === 'object' &&
+  err !== null &&
+  'code' in err &&
+  typeof (err as { code: unknown }).code === 'number';
+
+const hasMessage = (err: unknown): err is { message: string } =>
+  typeof err === 'object' &&
+  err !== null &&
+  'message' in err &&
+  typeof (err as { message: unknown }).message === 'string';
+
+// ---- Global Error Handler ----
+const globalErrorHandler: ErrorRequestHandler = (
+  err: unknown,
+  req: Request,
+  res: Response,
+): Response => {
   let statusCode = 500;
   let message = 'Something went wrong!';
-  let errorSources: TErrorSources = [{ path: '', message }];
+  let errorSources: IErrorSources = [{ path: '', message }];
 
   if (err instanceof ZodError) {
-    const e = handleZodError(err);
-    statusCode = e.statusCode;
-    message = e.message;
-    errorSources = e.errorSources;
-  } else if (err?.name === 'ValidationError') {
-    const e = handleMongooseValidationError(err);
-    statusCode = e.statusCode;
-    message = e.message;
-    errorSources = e.errorSources;
-  } else if (err?.name === 'CastError') {
-    const e = handleMongooseCastError(err);
-    statusCode = e.statusCode;
-    message = e.message;
-    errorSources = e.errorSources;
-  } else if (err?.code === 11000 && err?.keyValue) {
-    const e = handleMongooseDuplicateError(err);
-    statusCode = e.statusCode;
-    message = e.message;
-    errorSources = e.errorSources;
+    ({ statusCode, message, errorSources } = handleZodError(err));
+  } else if (err instanceof mongoose.Error.ValidationError) {
+    ({ statusCode, message, errorSources } =
+      handleMongooseValidationError(err));
+  } else if (err instanceof mongoose.Error.CastError) {
+    ({ statusCode, message, errorSources } = handleMongooseCastError(err));
+  } else if (hasCode(err) && err.code === 11000 && hasMessage(err)) {
+    ({ statusCode, message, errorSources } = handleMongooseDuplicateError(err));
+  } else if (err instanceof Error) {
+    message = err.message;
+    errorSources = [{ path: '', message }];
   }
 
   return sendErrorResponse(
@@ -280,7 +332,9 @@ const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFun
     statusCode,
     message,
     errorSources,
-    config.node_env === 'development' ? err?.stack : undefined
+    config.node_env === 'development' && err instanceof Error
+      ? err.stack
+      : undefined,
   );
 };
 
@@ -316,10 +370,10 @@ const validateRequest =
 export default validateRequest;
 
 `;
-const errorInterfaceTemplate = `export type TErrorSources = {
+const errorInterfaceTemplate = `export interface IErrorSources {
   path: string | number;
   message: string;
-}[];
+}[]
 `;
 module.exports = {
   getPackageJsonTemplate,

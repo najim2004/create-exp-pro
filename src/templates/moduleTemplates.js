@@ -1,4 +1,4 @@
-const { capitalize } = require("../utils");
+const { capitalize } = require("../core/utils");
 
 const getModuleRouteTemplate = (moduleName) => {
   const capitalized = capitalize(moduleName);
@@ -36,7 +36,7 @@ const getModuleControllerTemplate = (moduleName) => {
 import { ${capitalized}Services } from './${moduleName}.service';
 import logger from '../../utils/logger';
 
-const create${capitalized} = async (req: Request, res: Response, next: NextFunction) => {
+const create${capitalized} = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   logger.info('Creating a new ${moduleName}...');
   try {
     const result = await ${capitalized}Services.create${capitalized}IntoDB(req.body);
@@ -48,7 +48,7 @@ const create${capitalized} = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-const getAll${capitalized}s = async (req: Request, res: Response, next: NextFunction) => {
+const getAll${capitalized}s = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   logger.info('Fetching all ${moduleName}s...');
   try {
     const result = await ${capitalized}Services.getAll${capitalized}sFromDB();
@@ -59,7 +59,7 @@ const getAll${capitalized}s = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-const getSingle${capitalized} = async (req: Request, res: Response, next: NextFunction) => {
+const getSingle${capitalized} = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { id } = req.params;
   logger.info(\`Fetching ${moduleName} with id: \${id}...\`);
   try {
@@ -71,7 +71,7 @@ const getSingle${capitalized} = async (req: Request, res: Response, next: NextFu
   }
 };
 
-const update${capitalized} = async (req: Request, res: Response, next: NextFunction) => {
+const update${capitalized} = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { id } = req.params;
   logger.info(\`Updating ${moduleName} with id: \${id}...\`);
   try {
@@ -83,7 +83,7 @@ const update${capitalized} = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-const delete${capitalized} = async (req: Request, res: Response, next: NextFunction) => {
+const delete${capitalized} = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { id } = req.params;
   logger.info(\`Deleting ${moduleName} with id: \${id}...\`);
   try {
@@ -108,15 +108,28 @@ export const ${capitalized}Controllers = {
 const getModuleServiceTemplate = (moduleName, hasModel) => {
   const capitalized = capitalize(moduleName);
   if (hasModel) {
-    return `import { T${capitalized} } from './${moduleName}.interface';
+    return `import { I${capitalized} } from './${moduleName}.interface';
 import { ${capitalized} } from './${moduleName}.model';
 
-const create${capitalized}IntoDB = async (payload: T${capitalized}) => ${capitalized}.create(payload);
-const getAll${capitalized}sFromDB = async () => ${capitalized}.find();
-const getSingle${capitalized}FromDB = async (id: string) => ${capitalized}.findById(id);
-const update${capitalized}IntoDB = async (id: string, payload: Partial<T${capitalized}>) =>
-  ${capitalized}.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
-const delete${capitalized}FromDB = async (id: string) => ${capitalized}.findByIdAndDelete(id);
+const create${capitalized}IntoDB = async (payload: I${capitalized}): Promise<I${capitalized}> => {
+  return ${capitalized}.create(payload);
+};
+
+const getAll${capitalized}sFromDB = async (): Promise<I${capitalized}[]> => {
+  return ${capitalized}.find();
+};
+
+const getSingle${capitalized}FromDB = async (id: string): Promise<I${capitalized} | null> => {
+  return ${capitalized}.findById(id);
+};
+
+const update${capitalized}IntoDB = async (id: string, payload: Partial<I${capitalized}>): Promise<I${capitalized} | null> => {
+  return ${capitalized}.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
+};
+
+const delete${capitalized}FromDB = async (id: string): Promise<I${capitalized} | null> => {
+  return ${capitalized}.findByIdAndDelete(id);
+};
 
 export const ${capitalized}Services = {
   create${capitalized}IntoDB,
@@ -169,19 +182,21 @@ export const ${capitalized}Validations = {
 const getModuleModelTemplate = (moduleName) => {
   const capitalized = capitalize(moduleName);
   return `import { Schema, model } from 'mongoose';
-import { T${capitalized} } from './${moduleName}.interface';
+import { I${capitalized} } from './${moduleName}.interface';
 
-const ${moduleName}Schema = new Schema<T${capitalized}>({
+const ${moduleName}Schema = new Schema<I${capitalized}>({
   name: { type: String, required: true, unique: true },
 }, { timestamps: true });
 
-export const ${capitalized} = model<T${capitalized}>('${capitalized}', ${moduleName}Schema);
+export const ${capitalized} = model<I${capitalized}>('${capitalized}', ${moduleName}Schema);
 `;
 };
 
 const getModuleInterfaceTemplate = (moduleName) => {
   const capitalized = capitalize(moduleName);
-  return `export type T${capitalized} = {
+  return `import { Document } from 'mongoose';
+
+export interface I${capitalized} extends Document {
   name: string;
 };
 `;
