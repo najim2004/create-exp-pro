@@ -71,7 +71,7 @@ export default defineConfig([
 
 `;
 // src/templates/readme.template.ts
-export const readmeTemplate = (projectName) => `# ${projectName} (ESM)
+const readmeTemplate = (projectName) => `# ${projectName} (ESM)
 
 > Professional Express.js backend scaffolded with **nxpcli** (Najim's Express CLI)  
 > Fully TypeScript-based, modular, and production-ready.
